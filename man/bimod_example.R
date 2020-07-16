@@ -38,5 +38,5 @@ data.nonreg <-  function(n=50,mutheta=5,musigma=2,
 
 data <- data.nonreg(r1=0,r2=0)$data
 res <- bimod(data$y, data$s, with_cov = FALSE, bi_option = TRUE,
-             seed = 9999, iter = 500, chain = 1, verbose = FALSE,
-             warmup= 300, thin=1, adapt_delta = 0.99)$pop_par
+             seed = 9999, iter = 3000, chain = 3, verbose = FALSE,
+             warmup= 1000, thin=3, adapt_delta = 0.99)$pop_par

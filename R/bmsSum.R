@@ -87,7 +87,7 @@ unimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL,
     n <- length(y)
     uni_mu_dist <- fit.result$mu
     uni_theta_dist <- matrix(rep(NA),nrow=n,ncol=dim(fit.result)[1])
-    for (i in 1:n) uni_theta_dist[i,] <- fit.result[,1+i]
+    for (i in 1:n) uni_theta_dist[i,] <- fit.result[,1+1+n+i]
     pop_par <- c(mean = mean(uni_mu_dist),
                  lower.bound = quantile(uni_mu_dist, 0.05),
                  upper.bound = quantile(uni_mu_dist, 0.95))
@@ -107,7 +107,7 @@ unimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL,
     uni_beta_dist <- matrix(rep(NA),nrow=p,ncol=dim(fit.result)[1])
     uni_theta_dist <- matrix(rep(NA),nrow=n,ncol=dim(fit.result)[1])
     for (i in 1:p) uni_beta_dist[i,] <- fit.result[,i]
-    for (i in 1:n) uni_theta_dist[i,] <- fit.result[,p+i]
+    for (i in 1:n) uni_theta_dist[i,] <- fit.result[,p+1+n+i]
     pop_par <- do.call(rbind, lapply(1:p, function(x)
       c(mean = mean(uni_beta_dist[x,]),
         lower.bound = quantile(uni_beta_dist[x,], 0.05),

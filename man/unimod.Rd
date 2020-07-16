@@ -99,7 +99,7 @@ data.reg <-  function(tautheta=3,tausigma=1,
 }
 
 data <- data.reg(r1=0,r2=0)$data
-res <- unimod(data$y, data$s, with_cov = TRUE, X = X,
-              seed = 9999, iter = 1000, chain = 1, verbose = FALSE,
-              warmup= 500, thin=1)$pop_par
+res <- unimod(data$y, data$s, with_cov = TRUE, X=X,
+              seed = 9999, iter = 3000, chain = 3, verbose = FALSE,
+              warmup= 1000, thin=3)$pop_par
 }
