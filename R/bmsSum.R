@@ -1,17 +1,31 @@
-#' Bayesian hierarchical models for the combining the summay measures
-#' \code{sumbms} returns the posterior distributions of parameters fitted with data \code{data}
-#' @param data A data frame.
-#' @param dim A number 1 or 2.
-#' @param with_cov logical, TRUE or FALSE
-#' @param bi_option logical, TRUE or FALSE
-#' @return The posterior distributions of parameters fitted with data \code{data} with univariate or bivariate model.
-#' @examples
-#' add(data, 1)
-#' add(data, 2)
+#' Univariate Bayestian hierarchical model for combining summaries from multiple sources.
+#' @description \code{unimod} is mainly modeling the measures for combining summaries from multiple sources. It returns the estimates and posterior distributions of parameters of interest fitted with data.
+#'
+#' @param y A n-by-1 vector, consisting of the measures of n observations.
+#' @param s A n-by-1 vector, consisting of the standard error of the measures for n observations.
+#' @param with_cov if TRUE, include covariates in the model.
+#' @param X A n-by-p matrix of p covariates including intercept, which is all 1 for the first column.
+#' @param seed The seed for random number generation. The default is generated from 1 to the maximum integer supported by R on the machine. Even if multiple chains are used, only one seed is needed, with other chains having seeds derived from that of the first chain to avoid dependent samples.The default is 9999.
+#' @param iter a number to specify the iteration times of Stan. The default is 3000.
+#' @param chains A positive integer specifying the number of Markov chains. The default is 4.
+#' @param warmup a number of warmup iterations to be excluded when computing the summaries. The default is 1000.
+#' @param thin A positive integer specifying the period for saving samples. The default value is 3.
+#' @param adapt_delta A parameters to control the sampler’s behavior. The default is 0.8.
+#' @param max_treedepth A parameters to control the sampler’s behavior in For algorithm NUTS.
+#' @param verbose TRUE or FALSE: flag indicating whether to print intermediate output from Stan on the console, which might be helpful for model debugging.
+#' @return a list of information of the fitted univariate Bayestian hierarchical model including
+#' \describe{
+#'   \item{\code{pop_par}}{the estimates and credible intervals for the population-level parameters}
+#'   \item{\code{ind_par}}{the estimates and credible intervals for the individual-level parameters}
+#'   \item{\code{poster_dist}}{posterior distributions of all parameters fitted in the model}
+#' }
+#' @example man/unimod_example.R
 
-bmsSum::unimod <- function(data, with_cov = FALSE, bi_option = TRUE,...){
-# first define the stan models
-# (1) univariate without covariates
+unimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL,
+                   seed = 9999, iter = 3000, chain = 4, verbose = FALSE, warmup= 1000, thin=3,
+                   adapt_delta = 0.99, max_treedepth =3, ...){
+# 1. first define the stan models
+# 1.1. univariate without covariates
   uni.stan =
   "
   data {
@@ -35,7 +49,7 @@ bmsSum::unimod <- function(data, with_cov = FALSE, bi_option = TRUE,...){
   }
 
   "
-# (2) univariate with covariates
+# 1.2. univariate with covariates
   uni.wcov.stan =
   "
   data {
@@ -62,31 +76,70 @@ bmsSum::unimod <- function(data, with_cov = FALSE, bi_option = TRUE,...){
   }
 
   "
-
-  # 1
-  if(dim==1 & with_cov == F){
-    dat=list(N=dim(data)[1],y=data$y,sigma=sqrt(data$s2))
+  # 2. then prepare the dataset, and run the stan model
+  if(with_cov == F){
+    dat = list(N=length(y),y=y,sigma=s)
     fit <- stan(model_code = uni.stan,
-                data = dat,seed = 9999, iter = 5000, chains = 3, warmup= 2000,
-                thin=10,verbose = TRUE,control = list(adapt_delta = 0.99))
+                data = dat,seed = seed, iter = iter, chains = chain, warmup= warmup,
+                thin = thin, verbose = TRUE,control = list(adapt_delta = adapt_delta, max_treedepth =  max_treedepth))
     fit.result <- data.frame(as.matrix(fit))
+    # result
+    n <- length(y)
+    uni_mu_dist <- fit.result$mu
+    uni_theta_dist <- matrix(rep(NA),nrow=n,ncol=dim(fit.result)[1])
+    for (i in 1:n) uni_theta_dist[i,] <- fit.result[,1+i]
+    pop_par <- c(mean = mean(uni_mu_dist),
+                 lower.bound = quantile(uni_mu_dist, 0.05),
+                 upper.bound = quantile(uni_mu_dist, 0.95))
+    ind_par <- do.call(rbind, lapply(1:n, function(x)
+      c(mean = mean(uni_theta_dist[x,]),
+        lower.bound = quantile(uni_theta_dist[x,], 0.05),
+        upper.bound = quantile(uni_theta_dist[x,], 0.95))))
   }
-  # 2
-  if(dim==1 & with_cov == T){
-    X = data[,5:dim(data)[2]]
-    dat=list(N=dim(data)[1],y=data$y,sigma=sqrt(data$s2),X=X, K=ncol(X))
+  if(with_cov == T){
+    dat=list(N=length(y),y=y,sigma=s,X=X, K=ncol(X))
     fit <- stan(model_code = uni.wcov.stan,
-                data = dat, seed = 9999, iter = 5000, chains = 3, warmup= 2000,
-                thin=10, verbose = TRUE, control = list(adapt_delta = 0.99))
+                data = dat,seed = seed, iter = iter, chains = chain, warmup= warmup,
+                thin = thin, verbose = verbose,control = list(adapt_delta = adapt_delta))
     fit.result <- data.frame(as.matrix(fit))
-    }
-
-  return(fit.result)
+    n <- length(y)
+    p <- ncol(X)
+    uni_beta_dist <- matrix(rep(NA),nrow=p,ncol=dim(fit.result)[1])
+    uni_theta_dist <- matrix(rep(NA),nrow=n,ncol=dim(fit.result)[1])
+    for (i in 1:p) uni_beta_dist[i,] <- fit.result[,i]
+    for (i in 1:n) uni_theta_dist[i,] <- fit.result[,p+i]
+    pop_par <- do.call(rbind, lapply(1:p, function(x)
+      c(mean = mean(uni_beta_dist[x,]),
+        lower.bound = quantile(uni_beta_dist[x,], 0.05),
+        upper.bound = quantile(uni_beta_dist[x,], 0.95))))
+    ind_par <- do.call(rbind, lapply(1:n, function(x)
+      c(mean = mean(uni_theta_dist[x,]),
+        lower.bound = quantile(uni_theta_dist[x,], 0.05),
+        upper.bound = quantile(uni_theta_dist[x,], 0.95))))
+  }
+  return(list(pop_par = pop_par,
+              ind_par = ind_par,
+              poster_dist = fit.result))
 }
 
-bmsSum::bimod <- function(data, with_cov = FALSE, bi_option = TRUE,...){
-  # first define the stan models
-  # (3) bivariate without covariates
+#' Bivariate Bayestian hierarchical model for combining summaries from multiple sources.
+#' @description \code{bimod} is modeling the measures and its uncertainty jointly for combining summaries from multiple sources. It returns the estimates and posterior distributions of parameters of interest fitted with data.
+#' @inheritParams unimod
+#' @param bi_option if TRUE, use empirical value for standard deviation of uncertainty of measure
+#' @return a list of information of the fitted bivariate Bayestian hierarchical model including
+#' \describe{
+#'   \item{\code{pop_par}}{the estimates and credible intervals for the population-level parameters}
+#'   \item{\code{ind_par}}{the estimates and credible intervals for the individual-level parameters}
+#'   \item{\code{poster_dist}}{posterior distributions of all parameters fitted in the model}
+#' }
+#' @example man/bimod_example.R
+
+
+bimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL, bi_option = TRUE,
+                  seed = 9999, iter = 3000, chain = 4, verbose = FALSE, warmup= 1000, thin=3,
+                  adapt_delta = 0.99, max_treedepth =  3, ...){
+  # 1. first define the stan models
+  # 1.1 bivariate without covariates
   bi.stan =
     "
   data {
@@ -123,7 +176,7 @@ bmsSum::bimod <- function(data, with_cov = FALSE, bi_option = TRUE,...){
   }
 
   "
-  # (4) bivariate with covariates
+  # 1.2 bivariate with covariates
   bi.wcov.stan =
     "
     data {
@@ -165,7 +218,7 @@ bmsSum::bimod <- function(data, with_cov = FALSE, bi_option = TRUE,...){
   }
 
   "
-  # (5) bivariate without covariates, fixed s_i
+  # 1.3 bivariate without covariates, fixed s_i
   bi.f.stan =
     "
   data {
@@ -199,7 +252,7 @@ bmsSum::bimod <- function(data, with_cov = FALSE, bi_option = TRUE,...){
 
   "
 
-  # (6) bivariate with covariates, fixed s_i
+  # 1.4 bivariate with covariates, fixed s_i
   bi.wcov.f.stan =
     "
   data {
@@ -238,44 +291,96 @@ bmsSum::bimod <- function(data, with_cov = FALSE, bi_option = TRUE,...){
   }
 
   "
-  # 3
-  if(dim==2 & with_cov == F & bi_option == T){
-    dat=list(N=dim(data)[1],x=cbind(data$y,log(sqrt(data$s2))))
+  # 2. then prepare the dataset, and run the stan model
+  if(with_cov == F & bi_option == T){
+    dat=list(N=length(y),x=cbind(y,log(s)))
     fit <- stan(model_code = bi.stan,
-                data = dat,seed = 9999, iter = 5000, chains = 3, warmup= 2000,
-                thin=10, verbose = TRUE, control = list(adapt_delta = 0.9999, max_treedepth=15))
+                data = dat,seed = seed, iter = iter, chains = chain, warmup= warmup,
+                thin = thin, verbose = TRUE,
+                control = list(adapt_delta = adapt_delta, max_treedepth =  max_treedepth))
     fit.result <- data.frame(as.matrix(fit))
+    # result
+    n <- length(y)
+    bi_mu_dist <- fit.result$mu.1.
+    bi_theta_dist <- matrix(rep(NA),nrow=n,ncol=dim(fit.result)[1])
+    for (i in 1:n) bi_theta_dist[i,] <- fit.result[,2+i]
+    pop_par <- c(mean = mean(bi_mu_dist),
+                 lower.bound = quantile(bi_mu_dist, 0.05),
+                 upper.bound = quantile(bi_mu_dist, 0.95))
+    ind_par <- do.call(rbind, lapply(1:n, function(x)
+      c(mean = mean(bi_theta_dist[x,]),
+        lower.bound = quantile(bi_theta_dist[x,], 0.05),
+        upper.bound = quantile(bi_theta_dist[x,], 0.95))))
   }
-  # 4
-  if(dim==2 & with_cov == T & bi_option == T){
-    X = data[,5:dim(data)[2]]
-    dat=list(N=dim(data)[1],x=cbind(data$y,log(sqrt(data$s2))),X=X, K=ncol(X))
+  if(with_cov == T & bi_option == T){
+    dat=list(N=length(y),x=cbind(y,log(s)),X=X, K=ncol(X))
     fit <- stan(model_code = bi.wcov.stan,
-                data = dat,seed = 9999, iter = 5000, chains = 3, warmup= 2000,
-                thin=10, verbose = TRUE,control = list(adapt_delta = 0.9999, max_treedepth=15))
+                data = dat,seed = seed, iter = iter, chains = chain, warmup= warmup,
+                thin = thin, verbose = TRUE,
+                control = list(adapt_delta = adapt_delta, max_treedepth =  max_treedepth))
     fit.result <- data.frame(as.matrix(fit))
+    # result
+    n <- length(y)
+    p <- ncol(X)
+    bi_beta_dist <- matrix(rep(NA),nrow=p,ncol=dim(fit.result)[1])
+    bi_theta_dist <- matrix(rep(NA),nrow=n,ncol=dim(fit.result)[1])
+    for (i in 1:p) bi_beta_dist[i,] <- fit.result[,i]
+    for (i in 1:n) bi_theta_dist[i,] <- fit.result[,2*p+i]
+    pop_par <- do.call(rbind, lapply(1:p, function(x)
+      c(mean = mean(bi_beta_dist[x,]),
+        lower.bound = quantile(bi_beta_dist[x,], 0.05),
+        upper.bound = quantile(bi_beta_dist[x,], 0.95))))
+    ind_par <- do.call(rbind, lapply(1:n, function(x)
+      c(mean = mean(bi_theta_dist[x,]),
+        lower.bound = quantile(bi_theta_dist[x,], 0.05),
+        upper.bound = quantile(bi_theta_dist[x,], 0.95))))
   }
-  # 5
-  if(dim==2 & with_cov == F & bi_option == F){
-    X = data[,5:dim(data)[2]]
-    dat=list(N=dim(data)[1],x=cbind(data$y,log(sqrt(data$s2))),X=X, K=ncol(X))
+  if(with_cov == F & bi_option == F){
+    dat=list(N=length(y),x=cbind(y,log(s)))
     fit <- stan(model_code = bi.f.stan,
-                data = dat,seed = 9999, iter = 5000, chains = 3, warmup= 2000,
-                thin=10, verbose = TRUE,control = list(adapt_delta = 0.9999, max_treedepth=15))
+                data = dat,seed = seed, iter = iter, chains = chain, warmup= warmup,
+                thin = thin, verbose = TRUE,
+                control = list(adapt_delta = adapt_delta, max_treedepth =  max_treedepth))
     fit.result <- data.frame(as.matrix(fit))
+    # result
+    n <- length(y)
+    bi_mu_dist <- bi.result$mu.1.
+    bi_theta_dist <- matrix(rep(NA),nrow=n,ncol=dim(fit.result)[1])
+    for (i in 1:n) bi_theta_dist[i,] <- fit.result[,2+i]
+    pop_par <- c(mean = mean(bi_mu_dist),
+                 lower.bound = quantile(bi_mu_dist, 0.05),
+                 upper.bound = quantile(bi_mu_dist, 0.95))
+    ind_par <- do.call(rbind, lapply(1:n, function(x)
+      c(mean = mean(bi_theta_dist[x,]),
+        lower.bound = quantile(bi_theta_dist[x,], 0.05),
+        upper.bound = quantile(bi_theta_dist[x,], 0.95))))
   }
-  # 6
-  if(dim==2 & with_cov == T & bi_option == F){
-    X = data[,5:dim(data)[2]]
-    dat=list(N=dim(data)[1],x=cbind(data$y,log(sqrt(data$s2))),X=X, K=ncol(X))
+  if(with_cov == T & bi_option == F){
+    dat=list(N=length(y),x=cbind(y,log(s)),X=X, K=ncol(X))
     fit <- stan(model_code = bi.wcov.f.stan,
-                data = dat,seed = 9999, iter = 5000, chains = 3, warmup= 2000,
-                thin=10, verbose = TRUE,control = list(adapt_delta = 0.9999, max_treedepth=15))
+                data = dat,seed = seed, iter = iter, chains = chain, warmup= warmup,
+                thin = thin, verbose = TRUE,
+                control = list(adapt_delta = adapt_delta, max_treedepth =  max_treedepth))
     fit.result <- data.frame(as.matrix(fit))
+    # result
+    n <- length(y)
+    p <- ncol(X)
+    bi_beta_dist <- matrix(rep(NA),nrow=p,ncol=dim(fit.result)[1])
+    bi_theta_dist <- matrix(rep(NA),nrow=n,ncol=dim(fit.result)[1])
+    for (i in 1:p) bi_beta_dist[i,] <- fit.result[,i]
+    for (i in 1:n) bi_theta_dist[i,] <- fit.result[,2*p+i]
+    pop_par <- do.call(rbind, lapply(1:p, function(x)
+      c(mean = mean(bi_beta_dist[x,]),
+        lower.bound = quantile(bi_beta_dist[x,], 0.05),
+        upper.bound = quantile(bi_beta_dist[x,], 0.95))))
+    ind_par <- do.call(rbind, lapply(1:n, function(x)
+      c(mean = mean(bi_theta_dist[x,]),
+        lower.bound = quantile(bi_theta_dist[x,], 0.05),
+        upper.bound = quantile(bi_theta_dist[x,], 0.95))))
   }
-  return(fit.result)
+  return(list(pop_par = pop_par,
+              ind_par = ind_par,
+              poster_dist = fit.result))
 }
 
-# test
-# data <- data.nonreg(r1=0,r2=0)$data
-# res <- sumbms(data, dim=1, with_cov = FALSE, bi_option = TRUE)
+

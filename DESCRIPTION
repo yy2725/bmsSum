@@ -1,19 +1,16 @@
 Package: bmsSum
 Type: Package
-Title: An implementation of Bayesian hierarchical models for the combining the summay measures
+Title: Bayesian hierarchical models for combining the summay measures
 Version: 0.1.0
-Author: person(given = "Yujing",
-           family = "Yao",
-           role = c("aut", "cre"),
-           email = "yy2725@cumc.columbia.edu")
-Description: An implementation of the Bayesdian hierarchical models for combining estimates from multiple studies or domains. 
-        When only summary estimates are avaiable, univariate model is used. 
-        When given corresponding measures of the uncertainty of each estimate is also avaiable, we can further use the bivariate model. Such a model should take into account the uncertainty of the estimates as well as the uncertainty in the measures of the uncertainty, in addition to the association between these quantities.
-        See ``Bivariate Hierarchical Bayesian Model for Combining Summary Measures from Multiple Sources'' for more information. 
-Depends: R (>= 3.6.3)
-Imports: rstan (>= 1.0.0), Rcpp (>= 0.11.0)
-Suggests: devtools 
-License: CC0
+Authors: Yujing, Y., Qixuan, C., Ogden, R.T.
+Maintainer: Yujing Yao <yy2725@columbia.edu>
+Description: An implementation of Bayesian hierarchical models with Stan for combining the summay measures from multiple sources. In many situations that arise frequently in meta-analysis and small area estimation, among other fields, one is interested in combining estimates from multiple studies or domains given corresponding measures of the uncertainty of each estimate. In such a case, an efficient inference can be accomplished based on a hierarchical Bayesian model with appropriate priors to account for the between-source variation and within source variation. The univariate hierarchical model is used as a general method when there is no obvious correlation between summary estimates and the corresponding uncertainty of the measures. Bivariate model can be thought of as an improvement to the univariate model in terms of estimation accuracy and efficiency in the situation in which measures and their uncertainty are correlated. See "Bivariate Hierarchical Bayesian Model for Combining Summary Measures from Multiple Sources" for more information. The main func- tion of this package is unimod() and bimod().
+Depends: R (>= 4.0.0)
+Imports: rstan (>= 2.19.3), ggplot2, StanHeaders
+License: GPL-3
 Encoding: UTF-8
 LazyData: true
+NeedsCompilation: no
 RoxygenNote: 7.1.1
+Repository: Github
+
