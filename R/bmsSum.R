@@ -24,6 +24,11 @@
 unimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL,
                    seed = 9999, iter = 3000, chain = 4, verbose = FALSE, warmup= 1000, thin=3,
                    adapt_delta = 0.99, max_treedepth =3, ...){
+# 0. check and warnings
+  if(is.vector(y)==FALSE) {stop("y has to be a vector.")}
+  if(is.vector(s)==FALSE) {stop("s has to be a vector.")}
+  if(with_cov == TRUE & is.null(X) == 1) {stop("covariate X has to be included")}
+  if(with_cov == FALSE & is.null(X) == 0) {stop("covariate X has to be null")}
 # 1. first define the stan models
 # 1.1. univariate without covariates
   uni.stan =
@@ -138,6 +143,11 @@ unimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL,
 bimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL, bi_option = TRUE,
                   seed = 9999, iter = 3000, chain = 4, verbose = FALSE, warmup= 1000, thin=3,
                   adapt_delta = 0.99, max_treedepth =  3, ...){
+  # 0. check and warnings
+  if(is.vector(y)==FALSE) {stop("y has to be a vector.")}
+  if(is.vector(s)==FALSE) {stop("s has to be a vector.")}
+  if(with_cov == TRUE & is.null(X) == 1) {stop("covariate X has to be included")}
+  if(with_cov == FALSE & is.null(X) == 0) {stop("covariate X has to be null")}
   # 1. first define the stan models
   # 1.1 bivariate without covariates
   bi.stan =
