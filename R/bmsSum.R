@@ -20,6 +20,10 @@
 #'   \item{\code{poster_dist}}{posterior distributions of all parameters fitted in the model}
 #' }
 #' @example man/unimod_example.R
+#' @import rstan
+#' @import MASS
+#' @export
+
 
 unimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL,
                    seed = 9999, iter = 3000, chain = 4, verbose = FALSE, warmup= 1000, thin=3,
@@ -138,6 +142,7 @@ unimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL,
 #'   \item{\code{poster_dist}}{posterior distributions of all parameters fitted in the model}
 #' }
 #' @example man/bimod_example.R
+#' @export
 
 
 bimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL, bi_option = TRUE,
