@@ -222,7 +222,7 @@ bimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL, bi_option 
       }
     }
   model {
-    to_vector(beta) ~ normal(0, 1e6);
+    to_vector(beta) ~ normal(0, 1e3);
     st_devs ~ cauchy(0,2.5);
     L_corr ~ lkj_corr_cholesky(4);
     theta ~ multi_normal_cholesky(mu,diag_pre_multiply(st_devs, L_corr));
@@ -297,7 +297,7 @@ bimod <- function(y = data$y, s = data$s, with_cov = FALSE, X = NULL, bi_option 
       }
     }
   model {
-    to_vector(beta) ~ normal(0, 1e6);
+    to_vector(beta) ~ normal(0, 1e3);
     st_devs ~ cauchy(0,2.5);
     L_corr ~ lkj_corr_cholesky(4);
     theta ~ multi_normal_cholesky(mu,diag_pre_multiply(st_devs, L_corr));
